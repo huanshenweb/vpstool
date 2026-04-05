@@ -17,13 +17,33 @@ AWS VPS 流量消耗工具，用于按需消耗服务器带宽流量。支持精
 - Python 3.6+
 - 网络可达公共测速服务器
 
+## 一键安装
+
+SSH 登录 VPS 后，执行以下命令即可下载并使用：
+
+```bash
+wget -O traffic_consumer.py https://raw.githubusercontent.com/huanshenweb/vpstool/main/traffic_consumer.py && chmod +x traffic_consumer.py
+```
+
+或使用 curl：
+
+```bash
+curl -fsSL -o traffic_consumer.py https://raw.githubusercontent.com/huanshenweb/vpstool/main/traffic_consumer.py && chmod +x traffic_consumer.py
+```
+
 ## 快速开始
 
-将脚本上传到 VPS 后直接运行：
+下载完成后直接运行：
 
 ```bash
 # 全速下载消耗 10GB
 python3 traffic_consumer.py -g 10
+```
+
+一键下载并运行（下载 + 消耗 10GB）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/huanshenweb/vpstool/main/traffic_consumer.py | python3 - -g 10
 ```
 
 ## 参数说明
