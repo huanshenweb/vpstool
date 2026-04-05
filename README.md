@@ -93,14 +93,98 @@ python3 traffic_consumer.py -g 30 -s 50
 ```bash
 # 双向模式 + 8线程 + 120分钟消耗 100GB
 python3 traffic_consumer.py -g 100 -t 120 -m duplex -n 8
+```
 
+## 后台运行
+
+长时间消耗流量时，建议后台运行以防止 SSH 断连导致任务中断。
+
+### 方式一：nohup（最简单）
+
+```bash
 # 后台运行，日志输出到文件
 nohup python3 traffic_consumer.py -g 50 -t 60 > traffic.log 2>&1 &
 
-# 配合 screen 使用
+# 查看运行状态
+tail -f traffic.log
+
+# 停止任务
+kill $(pgrep -f traffic_consumer)
+```
+
+### 方式二：screen
+
+```bash
+# 创建一个新的 screen 会话
 screen -S traffic
+
+# 在 screen 中运行
 python3 traffic_consumer.py -g 100 -t 180
-# Ctrl+A D 脱离，screen -r traffic 恢复
+
+# 按 Ctrl+A 然后按 D 脱离会话（任务继续运行）
+# 重新连接查看进度
+screen -r traffic
+
+# 列出所有 screen 会话
+screen -ls
+```
+
+### 方式三：tmux
+
+```bash
+# 创建一个新的 tmux 会话
+tmux new -s traffic
+
+# 在 tmux 中运行
+python3 traffic_consumer.py -g 100 -t 180
+
+# 按 Ctrl+B 然后按 D 脱离会话（任务继续运行）
+# 重新连接查看进度
+tmux attach -t traffic
+
+# 列出所有 tmux 会话
+tmux ls
+```
+
+### 方式四：systemd 服务（开机自启）
+
+创建服务文件：
+
+```bash
+sudo tee /etc/systemd/system/traffic-consumer.service << 'EOF'
+[Unit]
+Description=VPS Traffic Consumer
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /root/traffic_consumer.py -g 50 -t 60
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+管理服务：
+
+```bash
+# 启动
+sudo systemctl start traffic-consumer
+
+# 查看状态
+sudo systemctl status traffic-consumer
+
+# 查看日志
+sudo journalctl -u traffic-consumer -f
+
+# 停止
+sudo systemctl stop traffic-consumer
+
+# 设置开机自启（可选）
+sudo systemctl enable traffic-consumer
 ```
 
 ## 运行效果
