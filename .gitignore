@@ -1,0 +1,5 @@
+.cursor/
+.idea/
+__pycache__/
+*.pyc
+traffic.log
