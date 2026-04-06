@@ -24,9 +24,11 @@ DOWNLOAD_URLS = [
     "http://speedtest.ftp.otenet.gr/files/test1Gb.db",
 ]
 
-UPLOAD_URLS = [
-    "http://speedtest.tele2.net/upload.php",
-    "http://bouygues.testdebit.info/",
+UPLOAD_HOSTS = [
+    ("speedtest.tele2.net", 80),
+    ("proof.ovh.net", 80),
+    ("speedtest.ftp.otenet.gr", 80),
+    ("bouygues.testdebit.info", 80),
 ]
 
 GB = 1024 ** 3
@@ -110,33 +112,48 @@ class TrafficConsumer:
                 url_idx = (url_idx + 1) % len(DOWNLOAD_URLS)
                 time.sleep(min(retries * 2, 10))
 
-    # ---- 上传模式 ----
+    # ---- 上传模式 (TCP socket) ----
     def _upload_worker(self, worker_id):
-        upload_chunk = 2 * MB  # 每次上传 2MB
-        url_idx = worker_id % len(UPLOAD_URLS)
+        chunk_size = 256 * 1024
+        data = os.urandom(chunk_size)
+        host_idx = worker_id % len(UPLOAD_HOSTS)
         retries = 0
 
         while not self._done():
-            remaining = self.target_bytes - self.consumed
-            size = min(upload_chunk, remaining)
-            data = os.urandom(size)
-            url = UPLOAD_URLS[url_idx]
+            host, port = UPLOAD_HOSTS[host_idx]
+            sock = None
             try:
-                req = urllib.request.Request(url, data=data, method="POST", headers={
-                    "User-Agent": "Mozilla/5.0 (VPS Traffic Consumer)",
-                    "Content-Type": "application/octet-stream",
-                    "Content-Length": str(len(data)),
-                })
-                with urllib.request.urlopen(req, timeout=60) as resp:
-                    resp.read()
-                self._add(size)
-                self._throttle()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(30)
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                sock.connect((host, port))
+                header = (
+                    f"POST / HTTP/1.1\r\n"
+                    f"Host: {host}\r\n"
+                    f"Content-Length: {self.target_bytes}\r\n"
+                    f"Content-Type: application/octet-stream\r\n"
+                    f"Connection: keep-alive\r\n"
+                    f"\r\n"
+                ).encode()
+                sock.sendall(header)
+                while not self._done():
+                    sent = sock.send(data)
+                    if sent <= 0:
+                        break
+                    self._add(sent)
+                    self._throttle()
                 retries = 0
             except Exception:
                 self.errors += 1
                 retries += 1
-                url_idx = (url_idx + 1) % len(UPLOAD_URLS)
+                host_idx = (host_idx + 1) % len(UPLOAD_HOSTS)
                 time.sleep(min(retries * 2, 10))
+            finally:
+                if sock:
+                    try:
+                        sock.close()
+                    except Exception:
+                        pass
 
     # ---- 双向模式 ----
     def _duplex_worker(self, worker_id):
