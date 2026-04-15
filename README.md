@@ -1,4 +1,91 @@
-# VPS Traffic Consumer
+# VPS Tool
+
+VPS 常用工具集，包含流量消耗工具和 Let's Encrypt 证书申请工具。
+
+---
+
+## Let's Encrypt 证书工具
+
+为 IP 地址 / 域名申请 Let's Encrypt 免费 SSL 证书，支持自动续期，内置 XrayR 部署。
+
+### 特性
+
+- **IP + 域名** — 同时支持纯 IP 证书和域名证书
+- **自动检测 IP** — 不指定 IP 时自动获取本机公网 IP
+- **XrayR 集成** — 一键部署到 `/etc/XrayR/cert/`，续期后自动重启 XrayR
+- **自动续期** — cron + systemd timer 双重保障
+- **多种验证** — standalone / webroot / TLS-ALPN / DNS
+
+### 一键安装
+
+```bash
+curl -fsSL -o letsencrypt-ip-cert.sh https://raw.githubusercontent.com/huanshenweb/vpstool/main/letsencrypt-ip-cert.sh && chmod +x letsencrypt-ip-cert.sh
+```
+
+### 快速使用
+
+```bash
+# 自动检测 IP + 部署到 XrayR（最简用法）
+sudo ./letsencrypt-ip-cert.sh --deploy xrayr --cert-name node1.test.com
+
+# 指定 IP + 部署到 XrayR
+sudo ./letsencrypt-ip-cert.sh --ip 1.2.3.4 --deploy xrayr --cert-name node1.test.com
+
+# 域名证书 + 部署到 XrayR
+sudo ./letsencrypt-ip-cert.sh --domain node1.test.com --deploy xrayr
+
+# 仅申请证书（不部署）
+sudo ./letsencrypt-ip-cert.sh --ip 1.2.3.4
+```
+
+一键下载并运行（自动检测 IP + 部署到 XrayR）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/huanshenweb/vpstool/main/letsencrypt-ip-cert.sh | sudo bash -s -- --deploy xrayr --cert-name node1.test.com
+```
+
+### 参数说明
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--ip <IP>` | 指定公网 IP | 自动检测 |
+| `--domain <DOMAIN>` | 指定域名 | — |
+| `--mode <MODE>` | 验证模式: `standalone` / `webroot` / `alpn` / `dns` | `standalone` |
+| `--deploy <TYPE>` | 部署目标: `xrayr` / `nginx` / `apache` / `custom` | 不部署 |
+| `--cert-name <NAME>` | 证书文件名前缀 | 与 IP/域名相同 |
+| `--webroot <PATH>` | webroot 模式的 Web 根目录 | — |
+| `--email <EMAIL>` | 注册邮箱（推荐填写） | — |
+| `--ecc` | 使用 ECC 证书 | RSA |
+| `--force` | 强制重新申请 | — |
+
+### 部署结果 (XrayR)
+
+| 文件 | 路径 |
+|------|------|
+| 证书 | `/etc/XrayR/cert/node1.test.com.cert` |
+| 私钥 | `/etc/XrayR/cert/node1.test.com.key` |
+
+XrayR `config.yml` 对应配置：
+
+```yaml
+CertConfig:
+  CertMode: file
+  CertFile: /etc/XrayR/cert/node1.test.com.cert
+  KeyFile: /etc/XrayR/cert/node1.test.com.key
+```
+
+### 证书有效期与续期
+
+| 类型 | 有效期 | 续期检查频率 |
+|------|--------|-------------|
+| IP 证书 | ~6.66 天 | 每 4 小时 |
+| 域名证书 | 90 天 | 每天凌晨 2:00 |
+
+续期后自动执行 `systemctl restart XrayR`。
+
+---
+
+## VPS 流量消耗工具
 
 AWS VPS 流量消耗工具，用于按需消耗服务器带宽流量。支持精确控制流量额度、消耗时间和速率。
 
